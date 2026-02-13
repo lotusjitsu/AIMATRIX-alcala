@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alcala AI - Command Interface</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { margin: 0; padding: 0; font-family: 'Courier New', monospace; }
+    .typing::after {
+      content: '▋';
+      animation: blink 1s infinite;
+    }
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white">
+  <div class="min-h-screen flex flex-col">
+    <!-- Header -->
+    <header class="bg-gray-800 border-b border-gray-700 p-4">
+      <div class="max-w-6xl mx-auto flex justify-between items-center">
+        <div>
+          <h1 class="text-2xl font-bold text-blue-400">ALCALA AI ASSISTANT</h1>
+          <p class="text-sm text-gray-400">AI MATRIX Primary Command Interface</p>
+        </div>
+        <div class="text-right">
+          <div class="flex items-center gap-2">
+            <div id="statusIndicator" class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+            <span id="statusText" class="text-sm text-green-400">Online</span>
+          </div>
+          <div class="text-xs text-gray-500 mt-1">
+            Agents: <span id="agentCount">0</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-6xl w-full mx-auto p-6">
+      <!-- Conversation History -->
+      <div id="conversationBox" class="bg-gray-800 border border-gray-700 rounded-lg p-6 h-[500px] overflow-y-auto mb-4">
+        <div id="messages" class="space-y-4">
+          <div class="text-center text-gray-500 text-sm">
+            <p>Alcala AI v1.0 - Ready to serve</p>
+            <p class="text-xs mt-2">Type your commands below or try: "What's the system status?"</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+        <form id="commandForm" class="flex gap-3">
+          <input
+            type="text"
+            id="commandInput"
+            placeholder="Enter command for Alcala..."
+            class="flex-1 bg-gray-700 text-white px-4 py-3 rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500"
+            autofocus
+          />
+          <button
+            type="submit"
+            class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-semibold transition-colors"
+          >
+            Send
+          </button>
+        </form>
+
+        <!-- Quick Commands -->
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button onclick="sendQuickCommand('What\\'s the system status?')" class="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition-colors">
+            System Status
+          </button>
+          <button onclick="sendQuickCommand('Spawn a new agent')" class="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition-colors">
+            Spawn Agent
+          </button>
+          <button onclick="sendQuickCommand('List agents')" class="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition-colors">
+            List Agents
+          </button>
+          <button onclick="sendQuickCommand('Hardware status')" class="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition-colors">
+            Hardware Status
+          </button>
+          <button onclick="sendQuickCommand('Help')" class="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition-colors">
+            Help
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 border-t border-gray-700 p-4 text-center text-xs text-gray-500">
+      AI MATRIX Command Center • Powered by Alcala AI
+    </footer>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:4001';
+    const messagesContainer = document.getElementById('messages');
+    const commandForm = document.getElementById('commandForm');
+    const commandInput = document.getElementById('commandInput');
+    const statusIndicator = document.getElementById('statusIndicator');
+    const statusText = document.getElementById('statusText');
+    const agentCount = document.getElementById('agentCount');
+
+    // Check status on load
+    async function checkStatus() {
+      try {
+        const response = await fetch(`${API_URL}/status`);
+        const data = await response.json();
+
+        if (data.status === 'online') {
+          statusIndicator.className = 'w-3 h-3 bg-green-500 rounded-full animate-pulse';
+          statusText.textContent = 'Online';
+          statusText.className = 'text-sm text-green-400';
+        } else {
+          statusIndicator.className = 'w-3 h-3 bg-red-500 rounded-full';
+          statusText.textContent = 'Offline';
+          statusText.className = 'text-sm text-red-400';
+        }
+
+        agentCount.textContent = data.activeAgents || 0;
+      } catch (error) {
+        console.error('Status check failed:', error);
+        statusIndicator.className = 'w-3 h-3 bg-red-500 rounded-full';
+        statusText.textContent = 'Error';
+        statusText.className = 'text-sm text-red-400';
+      }
+    }
+
+    // Add message to conversation
+    function addMessage(text, isUser = false) {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+
+      const bubble = document.createElement('div');
+      bubble.className = `max-w-3xl px-4 py-3 rounded-lg ${
+        isUser
+          ? 'bg-blue-600 text-white'
+          : 'bg-gray-700 text-gray-100'
+      }`;
+
+      const speaker = document.createElement('div');
+      speaker.className = 'text-xs font-bold mb-1 opacity-75';
+      speaker.textContent = isUser ? 'You' : 'Alcala';
+
+      const content = document.createElement('div');
+      content.className = 'text-sm';
+      content.textContent = text;
+
+      bubble.appendChild(speaker);
+      bubble.appendChild(content);
+      messageDiv.appendChild(bubble);
+
+      messagesContainer.appendChild(messageDiv);
+
+      // Scroll to bottom
+      messagesContainer.parentElement.scrollTop = messagesContainer.parentElement.scrollHeight;
+    }
+
+    // Send command to Alcala
+    async function sendCommand(command) {
+      if (!command.trim()) return;
+
+      // Add user message
+      addMessage(command, true);
+
+      // Clear input
+      commandInput.value = '';
+
+      // Show typing indicator
+      const typingDiv = document.createElement('div');
+      typingDiv.id = 'typing';
+      typingDiv.className = 'text-gray-500 text-sm typing';
+      typingDiv.textContent = 'Alcala is thinking';
+      messagesContainer.appendChild(typingDiv);
+
+      try {
+        const response = await fetch(`${API_URL}/command`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ command })
+        });
+
+        const data = await response.json();
+
+        // Remove typing indicator
+        document.getElementById('typing')?.remove();
+
+        if (data.success) {
+          addMessage(data.response, false);
+        } else {
+          addMessage(`Error: ${data.error || 'Unknown error'}`, false);
+        }
+
+        // Update status
+        checkStatus();
+
+      } catch (error) {
+        console.error('Command failed:', error);
+        document.getElementById('typing')?.remove();
+        addMessage('Error: Could not reach Alcala. Is the server running?', false);
+      }
+    }
+
+    // Quick command buttons
+    function sendQuickCommand(command) {
+      sendCommand(command);
+    }
+
+    // Form submit
+    commandForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      sendCommand(commandInput.value);
+    });
+
+    // Initial status check
+    checkStatus();
+
+    // Periodic status check
+    setInterval(checkStatus, 5000);
+
+    // Welcome message
+    setTimeout(() => {
+      const welcome = document.createElement('div');
+      welcome.className = 'bg-gray-700 text-gray-300 px-4 py-3 rounded-lg text-sm border border-gray-600';
+      welcome.innerHTML = `
+        <div class="font-bold text-blue-400 mb-2">🔊 Alcala AI (British accent):</div>
+        <div>"Good day. Alcala AI online and ready to serve. How may I assist you today?"</div>
+      `;
+      messagesContainer.appendChild(welcome);
+    }, 500);
+  </script>
+</body>
+</html>
